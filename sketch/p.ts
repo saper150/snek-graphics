@@ -1,16 +1,11 @@
 import { CircularArray } from "./curcularArray";
-import {
-  animationColorAt,
-  ColorAnimation,
-  Gradient,
-  gradientColorAt,
-  parseGradient,
-  updateColorAnimation,
-} from "./gradient";
+import { animationColorAt, updateColorAnimation } from "./gradient";
 import { Vector } from "./vector";
 
 import { consts } from "./ui";
 import { makeNoise3D } from "open-simplex-noise";
+
+import "../style.css";
 
 const noise3D = makeNoise3D(Date.now());
 
@@ -19,7 +14,6 @@ let uid = 0;
 interface Group {
   id: string;
   entities: Entity[];
-  colorAnimation: ColorAnimation;
 }
 
 interface Entity {
@@ -67,13 +61,15 @@ function randomEntityEdge(): Entity {
   };
 }
 
-let groups: { [key: string]: Group } = {};
+export let groups: { [key: string]: Group } = {};
 
 function updateGroup(group: Group) {
-  while (group.entities.length < consts[group.id].amount) {
-    if (consts[group.id].spawnLocation === "edge") {
+  const groupConsts = consts[group.id];
+
+  while (group.entities.length < groupConsts.amount) {
+    if (groupConsts.spawnLocation === "edge") {
       group.entities.push(randomEntityEdge());
-    } else if (consts[group.id].spawnLocation === "mouse") {
+    } else if (groupConsts.spawnLocation === "mouse") {
       group.entities.push(mouseEntity());
       break;
     } else {
@@ -81,9 +77,14 @@ function updateGroup(group: Group) {
     }
   }
 
-  updateColorAnimation(group.colorAnimation, deltaTime);
+  while (group.entities.length > groupConsts.amount) {
+    group.entities.pop();
+  }
+
+  updateColorAnimation(groupConsts.color, deltaTime);
+
   for (const e of group.entities) {
-    e.h.length = consts[group.id].length;
+    e.h.length = groupConsts.length;
 
     e.livetime -= deltaTime;
 
@@ -97,18 +98,18 @@ function updateGroup(group: Group) {
 
     let n: number;
 
-    if (consts[group.id].noiseType === "perlin") {
+    if (groupConsts.noiseType === "perlin") {
       n = noise(
-        e.position.x * consts[group.id].noiseScale,
-        e.position.y * consts[group.id].noiseScale,
-        millis() * consts[group.id].noiseTimeScale
+        e.position.x * groupConsts.noiseScale,
+        e.position.y * groupConsts.noiseScale,
+        millis() * groupConsts.noiseTimeScale
       );
       n = map(n, 0.25, 0.75, 0, 1);
     } else {
       n = noise3D(
-        e.position.x * consts[group.id].noiseScale * 0.5,
-        e.position.y * consts[group.id].noiseScale * 0.5,
-        millis() * consts[group.id].noiseTimeScale
+        e.position.x * groupConsts.noiseScale * 0.5,
+        e.position.y * groupConsts.noiseScale * 0.5,
+        millis() * groupConsts.noiseTimeScale
       );
     }
 
@@ -116,15 +117,24 @@ function updateGroup(group: Group) {
 
     // const seekVec = seek(e).multiply(0)
     const fellVec = flee(e).multiply(0);
-    const seperationVec = seperation(e, group).multiply(100);
+    const avoidEdgesVec = avoidEdges(e).multiply(groupConsts.avoidEdges);
+
+    let seperationVec = new Vector();
+    if (groups[groupConsts.seperationGroup]) {
+      seperationVec = seperation(
+        e,
+        groups[groupConsts.seperationGroup]
+      ).multiply(groupConsts.seperationValue);
+    }
 
     const steering = noiseVec
+      .add(avoidEdgesVec)
       .add(seperationVec)
-      .limit(consts[group.id].stearingThreshold);
+      .limit(groupConsts.stearingThreshold);
 
     e.vel = e.vel
       .add(steering.multiply(deltaTime))
-      .limit(consts[group.id].maxVelocity);
+      .limit(groupConsts.maxVelocity);
 
     e.position = e.position.add(e.vel.multiply(deltaTime));
 
@@ -137,6 +147,14 @@ function updateGroup(group: Group) {
       e.position.y > windowHeight
     ) {
       e.livetime = -1;
+    }
+
+    if (e.livetime < 0) {
+      e.h.pop();
+      if (e.h.arr.length <= 0) {
+        group.entities = group.entities.filter((x) => x !== e);
+      }
+      continue;
     }
   }
 }
@@ -184,7 +202,7 @@ function drawGroup(group: Group) {
     let prev;
     for (const el of e.h) {
       if (prev) {
-        const color = animationColorAt(group.colorAnimation, el.fraction);
+        const color = animationColorAt(consts[group.id].color, el.fraction);
         stroke(color[0], color[1], color[2]);
 
         line(prev.point.x, prev.point.y, el.point.x, el.point.y);
@@ -195,32 +213,37 @@ function drawGroup(group: Group) {
   }
 }
 
+function avoidEdges(e: Entity) {
+  const topDistance = e.position.y;
+  const bottomDistance = windowHeight - e.position.y;
+  const leftDistance = e.position.x;
+  const rightDistance = windowWidth - e.position.x;
+
+  const threshold = 100;
+
+  let v = new Vector(0, 0);
+
+  if (topDistance > threshold) {
+    v.y += 1 / topDistance;
+  }
+
+  if (bottomDistance > threshold) {
+    v.y -= 1 / bottomDistance;
+  }
+
+  if (leftDistance > threshold) {
+    v.x += 1 / leftDistance;
+  }
+
+  if (rightDistance > threshold) {
+    v.x -= 1 / rightDistance;
+  }
+
+  return v;
+}
+
 (window as any).setup = function setup() {
-  // seek = createVector(500, 500)
-
   createCanvas(windowWidth, windowHeight);
-
-  const colorAnimation = {
-    currentIndex: 0,
-    time: 0,
-    gradients: [
-      {
-        time: 8000,
-        gradient: parseGradient(
-          "90deg, rgba(0,0,0,1) 0%, rgba(10,0,208,1) 100%"
-        ),
-      },
-      // { time: 8000, gradient: parseGradient('90deg, rgba(0,0,0,1) 0%, rgba(0,96,14,1) 100%') },
-      // { time: 8000, gradient: parseGradient('90deg, rgba(0,0,0,1) 0%, rgba(250,250,0,1) 100%') },
-      // { time: 5000, gradient: parseGradient('90deg, rgba(0,0,0,1) 0%, rgba(255,0,18,1) 100%') }
-    ],
-  };
-
-  groups["#1"] = {
-    entities: [],
-    colorAnimation,
-    id: "#1",
-  };
 };
 (window as any).windowResized = function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
@@ -229,15 +252,10 @@ function drawGroup(group: Group) {
   background(0);
 
   for (const group of Object.values(groups)) {
+    if (!consts[group.id]) {
+      continue;
+    }
     updateGroup(group);
     drawGroup(group);
   }
-
-  //    noStroke()
-  //    fill(255)
-  //    textSize(15)
-  //    text('velocity', 150, 23)
-  //    text('stearing', 150, 53)
-  //    text('noise magnitude', 150, 53 + 30)
-  //    text('noise scale', 150, 53 + 60)
 };
