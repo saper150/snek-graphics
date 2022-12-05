@@ -22,6 +22,8 @@ type Consts = {
   avoidEdges: number;
   seperationGroup: string;
   seperationValue: number;
+  followGroup: string;
+  followValue: number;
 };
 
 export let consts: { [key: string]: Consts };
@@ -129,7 +131,7 @@ function Group({
           disabled={!groupState.seperationGroup}
           value={groupState.seperationValue}
           onChange={(v) => onGroupState({ ...groupState, seperationValue: v })}
-          max={3000}
+          max={10000}
           min={1}
         >
           <span>seperation</span>
@@ -139,6 +141,33 @@ function Group({
               onGroupState({
                 ...groupState,
                 seperationGroup: (event.target as any).value,
+              })
+            }
+          >
+            <option value="">none</option>
+            {groups.map((x) => (
+              <option value={x}>#{x}</option>
+            ))}
+          </select>
+        </NumberInput>
+      </div>
+
+      <div>
+        <NumberInput
+          label=""
+          disabled={!groupState.followGroup}
+          value={groupState.followValue}
+          onChange={(v) => onGroupState({ ...groupState, followValue: v })}
+          max={10000}
+          min={1}
+        >
+          <span>follow</span>
+          <select
+            value={groupState.followGroup}
+            onChange={(event) =>
+              onGroupState({
+                ...groupState,
+                followGroup: (event.target as any).value,
               })
             }
           >
@@ -217,6 +246,8 @@ function defaultGroupConsts(): Consts {
     avoidEdges: 0,
     seperationGroup: "",
     seperationValue: 0,
+    followGroup: "",
+    followValue: 0,
   };
 }
 
@@ -258,8 +289,8 @@ function App() {
   setUrl(state);
 
   return (
-    <div style={{ display: "flex" }}>
-      <div style={{ display: hidden ? "none" : "block" }}>
+    <div style={{ display: "flex", height: "100%" }}>
+      <div style={{ display: hidden ? "none" : "block", overflow: "auto" }}>
         {Object.entries(state).map(([key, group]) => (
           <div class="group">
             <div

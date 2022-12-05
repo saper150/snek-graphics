@@ -1,5 +1,9 @@
 import { CircularArray } from "./curcularArray";
-import { animationColorAt, updateColorAnimation } from "./gradient";
+import {
+  animationColorAt,
+  gradientColorAt,
+  updateColorAnimation,
+} from "./gradient";
 import { Vector } from "./vector";
 
 import { consts } from "./ui";
@@ -115,8 +119,13 @@ function updateGroup(group: Group) {
 
     const noiseVec = Vector.fromAngle(n * Math.PI * 2).multiply(3);
 
-    // const seekVec = seek(e).multiply(0)
-    const fellVec = flee(e).multiply(0);
+    let seekVec = new Vector();
+    if (groups[groupConsts.followGroup]) {
+      seekVec = seek(e, groups[groupConsts.followGroup]).multiply(
+        groupConsts.followValue
+      );
+    }
+
     const avoidEdgesVec = avoidEdges(e).multiply(groupConsts.avoidEdges);
 
     let seperationVec = new Vector();
@@ -130,6 +139,7 @@ function updateGroup(group: Group) {
     const steering = noiseVec
       .add(avoidEdgesVec)
       .add(seperationVec)
+      .add(seekVec)
       .limit(groupConsts.stearingThreshold);
 
     e.vel = e.vel
@@ -171,6 +181,27 @@ function flee(e: Entity) {
 
   const desiered = e.position.subtract(target).normalize();
   return desiered.divide(distance);
+}
+
+function closest(e: Entity, group: Group) {
+  let soFarDistance = Infinity;
+  let soFarElement = null;
+  for (const ee of group.entities) {
+    const distance = e.position.distanceTo(ee.position);
+    if (distance < soFarDistance) {
+      soFarDistance = distance;
+      soFarElement = ee;
+    }
+  }
+  return soFarElement;
+}
+
+function seek(e: Entity, group: Group) {
+  const c = closest(e, group);
+  if (c) {
+    return c.position.subtract(e.position).normalize();
+  }
+  return new Vector();
 }
 
 function seperation(e: Entity, group: Group) {
@@ -248,8 +279,25 @@ function avoidEdges(e: Entity) {
 (window as any).windowResized = function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 };
+
+function componentToHex(c: number) {
+  var hex = Math.round(c).toString(16);
+  return hex.length == 1 ? "0" + hex : hex;
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+  return componentToHex(r) + componentToHex(g) + componentToHex(b);
+}
+
 (window as any).draw = function draw() {
   background(0);
+
+  if (Object.values(groups).length > 0) {
+    const group = Object.values(groups)[0];
+
+    const c = animationColorAt(consts[group.id].color, 1);
+    // fetch(`http://led.pl/changeColor/${rgbToHex(c[0], c[1], c[2])}`);
+  }
 
   for (const group of Object.values(groups)) {
     if (!consts[group.id]) {

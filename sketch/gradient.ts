@@ -116,7 +116,7 @@ export function updateColorAnimation(animation: ColorAnimation, dt: number) {
 export function animationColorAt(animation: ColorAnimation, ration: number) {
   const gradients = animation.gradients.filter((x) => x.gradient);
   if (gradients.length === 0) {
-    return [0, 0, 0, 0];
+    return [0, 0, 0, 0] as Color;
   }
   const gradientA = gradients[animation.currentIndex % gradients.length];
 
