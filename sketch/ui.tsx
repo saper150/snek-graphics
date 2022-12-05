@@ -172,6 +172,7 @@ function Group({
             }
           >
             <option value="">none</option>
+            <option value="mouse">mouse</option>
             {groups.map((x) => (
               <option value={x}>#{x}</option>
             ))}

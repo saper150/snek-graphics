@@ -119,12 +119,9 @@ function updateGroup(group: Group) {
 
     const noiseVec = Vector.fromAngle(n * Math.PI * 2).multiply(3);
 
-    let seekVec = new Vector();
-    if (groups[groupConsts.followGroup]) {
-      seekVec = seek(e, groups[groupConsts.followGroup]).multiply(
-        groupConsts.followValue
-      );
-    }
+    const seekVec = seek(e, groupConsts.followGroup).multiply(
+      groupConsts.followValue
+    );
 
     const avoidEdgesVec = avoidEdges(e).multiply(groupConsts.avoidEdges);
 
@@ -196,12 +193,25 @@ function closest(e: Entity, group: Group) {
   return soFarElement;
 }
 
-function seek(e: Entity, group: Group) {
-  const c = closest(e, group);
-  if (c) {
-    return c.position.subtract(e.position).normalize();
+function seek(e: Entity, groupId: string) {
+  let target;
+  console.log(groupId);
+  if (groupId === "mouse") {
+    target = new Vector(mouseX, mouseY);
+  } else {
+    const group = groups[groupId];
+    if (!group) {
+      return new Vector();
+    }
+
+    target = closest(e, group)?.position;
   }
-  return new Vector();
+
+  if (!target) {
+    return new Vector();
+  }
+
+  return target.subtract(e.position).normalize();
 }
 
 function seperation(e: Entity, group: Group) {
